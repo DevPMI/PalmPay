@@ -1,25 +1,35 @@
 'use strict';
-const {
-  Model
-} = require('sequelize');
+const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
-  class PalmpayDevices extends Model {
+  class Palmpay_Devices extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // define association here
+      Palmpay_Devices.belongsTo(models.Merchants, {
+        foreignKey: 'merchant_id',
+      });
     }
   }
-  PalmpayDevices.init({
-    sn_palmpay: DataTypes.STRING,
-    merchant_id: DataTypes.INTEGER,
-    sn_edc: DataTypes.STRING
-  }, {
-    sequelize,
-    modelName: 'PalmpayDevices',
-  });
-  return PalmpayDevices;
+  Palmpay_Devices.init(
+    {
+      sn_palmpay: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        primaryKey: true,
+      },
+      merchant_id: DataTypes.INTEGER,
+      deletedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+    },
+    {
+      sequelize,
+      modelName: 'Palmpay_Devices',
+    }
+  );
+  return Palmpay_Devices;
 };

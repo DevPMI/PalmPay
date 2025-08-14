@@ -9,9 +9,6 @@ module.exports = (sequelize, DataTypes) => {
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
-    static associate(models) {
-      // define association here
-    }
   }
   Merchants.init(
     {
@@ -25,6 +22,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         unique: true,
         allowNull: false,
+        defaultValue: () => 'MCT-' + randomBytes(4).toString('hex').toUpperCase(),
       },
       merchant_name: DataTypes.STRING,
       email: DataTypes.STRING,
@@ -40,12 +38,6 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: 'Merchants',
       paranoid: true,
-      hooks: {
-        beforeCreate: async (merchant, options) => {
-          const randomString = randomBytes(4).toString('hex').toUpperCase();
-          merchant.merchant_code = 'MCT-' + randomString;
-        },
-      },
     }
   );
   return Merchants;

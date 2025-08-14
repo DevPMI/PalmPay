@@ -27,6 +27,7 @@ class Controller {
         email: merchant.email,
         phone_number: merchant.phone_number,
         address: merchant.address,
+        merchant_code: merchant.merchant_code,
       };
       const token = createAccessToken(payload);
 
@@ -37,6 +38,7 @@ class Controller {
         data: {
           merchant_id: merchant.merchant_id,
           merchant_name: merchant.merchant_name,
+          merchant_code: merchant.merchant_code,
           email: merchant.email,
           phone_number: merchant.phone_number,
           address: merchant.address,
