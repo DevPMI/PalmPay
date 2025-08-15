@@ -23,9 +23,7 @@ module.exports = {
       merchant_name: {
         type: Sequelize.STRING,
       },
-      email: {
-        type: Sequelize.STRING,
-      },
+      email: { type: DataTypes.STRING, unique: true },
       phone_number: {
         type: Sequelize.STRING,
       },

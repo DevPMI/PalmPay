@@ -21,7 +21,7 @@ module.exports = {
         onDelete: 'SET NULL',
       },
       sn_palmpay: {
-        type: Sequelize.STRING, // Kolom tetap ada, tapi tanpa foreign key references
+        type: Sequelize.STRING,
       },
       createdAt: {
         allowNull: false,

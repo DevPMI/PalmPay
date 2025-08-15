@@ -3,8 +3,13 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Edc_Devices extends Model {
     static associate(models) {
+      // Edc_Devices adalah milik satu Merchants
       Edc_Devices.belongsTo(models.Merchants, {
         foreignKey: 'merchant_id',
+      });
+
+      Edc_Devices.hasOne(models.Palmpay_Devices, {
+        foreignKey: 'sn_edc',
       });
     }
   }

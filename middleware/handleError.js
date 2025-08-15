@@ -20,6 +20,12 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Mohon Masukkan Email') {
     code = 400;
     message = 'Mohon Masukkan Email';
+  } else if (err.name === 'Format file gambar kedua tidak valid. Hanya JPG/JPEG/PNG yang diizinkan.') {
+    code = 400;
+    message = 'Format file gambar kedua tidak valid. Hanya JPG/JPEG/PNG yang diizinkan.';
+  } else if (err.name === 'Format file gambar pertama tidak valid. Hanya JPG/JPEG/PNG yang diizinkan.') {
+    code = 400;
+    message = 'Format file gambar pertama tidak valid. Hanya JPG/JPEG/PNG yang diizinkan.';
   }
 
   // 401

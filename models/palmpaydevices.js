@@ -2,14 +2,15 @@
 const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Palmpay_Devices extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
     static associate(models) {
+      // Palmpay_Devices adalah milik satu Merchants
       Palmpay_Devices.belongsTo(models.Merchants, {
         foreignKey: 'merchant_id',
+      });
+
+      // Palmpay_Devices adalah milik satu Edc_Devices
+      Palmpay_Devices.belongsTo(models.Edc_Devices, {
+        foreignKey: 'sn_edc',
       });
     }
   }
@@ -20,7 +21,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         primaryKey: true,
       },
-      merchant_id: DataTypes.INTEGER,
+      merchant_id: DataTypes.UUID,
+      sn_edc: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+      },
       deletedAt: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -29,6 +35,8 @@ module.exports = (sequelize, DataTypes) => {
     {
       sequelize,
       modelName: 'Palmpay_Devices',
+      paranoid: true,
+      primaryKey: 'sn_palmpay',
     }
   );
   return Palmpay_Devices;

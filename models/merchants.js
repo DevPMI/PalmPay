@@ -4,11 +4,16 @@ const { randomBytes } = require('crypto');
 
 module.exports = (sequelize, DataTypes) => {
   class Merchants extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
+    static associate(models) {
+      // Merchants punya banyak Edc_Devices
+      Merchants.hasMany(models.Edc_Devices, {
+        foreignKey: 'merchant_id',
+      });
+
+      Merchants.hasMany(models.Palmpay_Devices, {
+        foreignKey: 'merchant_id',
+      });
+    }
   }
   Merchants.init(
     {
@@ -25,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: () => 'MCT-' + randomBytes(4).toString('hex').toUpperCase(),
       },
       merchant_name: DataTypes.STRING,
-      email: DataTypes.STRING,
+      email: { type: DataTypes.STRING, unique: true },
       phone_number: DataTypes.STRING,
       password: DataTypes.STRING,
       address: DataTypes.STRING,

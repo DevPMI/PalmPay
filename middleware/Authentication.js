@@ -1,15 +1,15 @@
 /** @format */
 
 const { verifyAccessToken } = require('../helper/jwt');
-const { User } = require('../models/index');
+const { Merchants } = require('../models/index');
 
 const authentication = async (req, res, next) => {
   try {
-    const { authorization } = req.headers;
-    let payload = verifyAccessToken(authorization);
-    let dataUser = await User.findOne({
+    const { token } = req.headers;
+    let payload = verifyAccessToken(token);
+    let dataUser = await Merchants.findOne({
       where: {
-        id: payload.id,
+        merchant_id: payload.merchant_id,
         deletedAt: null,
       },
     });
@@ -18,12 +18,12 @@ const authentication = async (req, res, next) => {
       throw { name: 'Invalid authorization' };
     }
 
-    if (!dataUser.status_aktif) {
-      throw { name: 'User Tidak Aktif' };
-    }
+    // if (!dataUser.status_aktif) {
+    //   throw { name: 'User Tidak Aktif' };
+    // }
 
     req.user = {
-      id: dataUser.id,
+      merchant_id: dataUser.merchant_id,
       email: dataUser.email,
     };
 

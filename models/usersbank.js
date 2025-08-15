@@ -1,9 +1,7 @@
 'use strict';
-const {
-  Model
-} = require('sequelize');
+const { Model, Sequelize } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
-  class UsersBank extends Model {
+  class Users_Bank extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
@@ -13,16 +11,27 @@ module.exports = (sequelize, DataTypes) => {
       // define association here
     }
   }
-  UsersBank.init({
-    username: DataTypes.STRING,
-    email: DataTypes.STRING,
-    phone_number: DataTypes.STRING,
-    nik: DataTypes.STRING,
-    palmpay_image: DataTypes.STRING,
-    balance: DataTypes.FLOAT
-  }, {
-    sequelize,
-    modelName: 'UsersBank',
-  });
-  return UsersBank;
+  Users_Bank.init(
+    {
+      user_id: {
+        unique: true,
+        primaryKey: true,
+        type: DataTypes.UUID,
+        defaultValue: Sequelize.literal('uuid_generate_v4()'),
+      },
+      username: DataTypes.STRING,
+      email: { type: DataTypes.STRING, unique: true },
+      phone_number: DataTypes.STRING,
+      nik: { type: DataTypes.STRING, unique: true },
+      palmpay_image_1: DataTypes.STRING,
+      palmpay_image_2: DataTypes.STRING,
+      balance: DataTypes.FLOAT,
+    },
+    {
+      sequelize,
+      modelName: 'Users_Banks',
+      primaryKey: 'user_id',
+    }
+  );
+  return Users_Bank;
 };

@@ -8,6 +8,11 @@ module.exports = {
         allowNull: false,
         primaryKey: true,
       },
+      sn_edc: {
+        type: Sequelize.STRING,
+        allowNull: true,
+        unique: true,
+      },
       merchant_id: {
         type: Sequelize.UUID,
         references: {
