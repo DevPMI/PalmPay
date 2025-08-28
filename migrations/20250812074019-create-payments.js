@@ -10,7 +10,7 @@ module.exports = {
         primaryKey: true,
       },
       transaction_id: {
-        type: Sequelize.INTEGER,
+        type: Sequelize.UUID,
         references: {
           model: 'Transactions',
           key: 'transaction_id',

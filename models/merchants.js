@@ -13,6 +13,11 @@ module.exports = (sequelize, DataTypes) => {
       Merchants.hasMany(models.Palmpay_Devices, {
         foreignKey: 'merchant_id',
       });
+
+      // // Hubungan: Merchant adalah milik satu Users_Bank
+      // Merchants.belongsTo(models.Users_Banks, {
+      //   foreignKey: 'user_id', // Foreign key ada di tabel Merchants
+      // });
     }
   }
   Merchants.init(
@@ -30,10 +35,13 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: () => 'MCT-' + randomBytes(4).toString('hex').toUpperCase(),
       },
       merchant_name: DataTypes.STRING,
+      bank: DataTypes.STRING,
+      account_number: DataTypes.STRING,
       email: { type: DataTypes.STRING, unique: true },
       phone_number: DataTypes.STRING,
       password: DataTypes.STRING,
       address: DataTypes.STRING,
+
       deletedAt: {
         type: DataTypes.DATE,
         allowNull: true,

@@ -26,6 +26,12 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Format file gambar pertama tidak valid. Hanya JPG/JPEG/PNG yang diizinkan.') {
     code = 400;
     message = 'Format file gambar pertama tidak valid. Hanya JPG/JPEG/PNG yang diizinkan.';
+  } else if (err.name === 'Data transaksi tidak lengkap.') {
+    code = 400;
+    message = 'Data transaksi tidak lengkap.';
+  } else if (err.name === 'Saldo tidak mencukupi.') {
+    code = 400;
+    message = 'Saldo tidak mencukupi.';
   }
 
   // 401
@@ -101,6 +107,12 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Termin Project Tidak Ditemukan') {
     code = 404;
     message = 'Termin Project Tidak Ditemukan';
+  } else if (err.name === 'Pengguna dengan Palm ID tersebut tidak terdaftar.') {
+    code = 404;
+    message = 'Pengguna dengan Palm ID tersebut tidak terdaftar.';
+  } else if (err.name === 'Merchant tidak valid atau tidak ditemukan.') {
+    code = 404;
+    message = 'Merchant tidak valid atau tidak ditemukan.';
   }
   res.status(code).json({
     statusCode: code,

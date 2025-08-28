@@ -33,6 +33,12 @@ module.exports = {
       address: {
         type: Sequelize.STRING,
       },
+      bank: {
+        type: Sequelize.STRING,
+      },
+      account_number: {
+        type: Sequelize.STRING,
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,

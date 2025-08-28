@@ -11,6 +11,8 @@ module.exports = {
       merchant_id: merchant.merchant_id,
       merchant_code: merchant.merchant_code,
       phone_number: merchant.phone_number,
+      bank: merchant.bank,
+      account_number: merchant.account_number,
       password: merchant.password,
       address: merchant.address,
       createdAt: new Date(),

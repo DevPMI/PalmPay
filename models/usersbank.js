@@ -22,6 +22,7 @@ module.exports = (sequelize, DataTypes) => {
       username: DataTypes.STRING,
       email: { type: DataTypes.STRING, unique: true },
       phone_number: DataTypes.STRING,
+      palm_id: { type: DataTypes.STRING, unique: true },
       nik: { type: DataTypes.STRING, unique: true },
       palmpay_image_1: DataTypes.STRING,
       palmpay_image_2: DataTypes.STRING,

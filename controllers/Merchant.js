@@ -52,7 +52,7 @@ class Controller {
   // REGISTER
   static async register(req, res, next) {
     try {
-      const { merchant_name, email, password, phone_number, address } = req.body;
+      const { merchant_name, email, password, phone_number, address, bank, account_number } = req.body;
 
       let body = {
         merchant_name,
@@ -60,6 +60,8 @@ class Controller {
         password: hashingPassword(password),
         phone_number: formatPhoneNumber(phone_number),
         address,
+        bank,
+        account_number,
         status_aktif: true,
       };
 

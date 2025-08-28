@@ -24,6 +24,10 @@ module.exports = {
         type: Sequelize.STRING,
         unique: true,
       },
+      palm_id: {
+        type: Sequelize.STRING,
+        unique: true,
+      },
       palmpay_image_1: {
         type: Sequelize.STRING,
       },

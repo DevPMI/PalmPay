@@ -4,22 +4,17 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('Transactions', {
       transaction_id: {
-        type: Sequelize.INTEGER,
-        allowNull: false,
-        autoIncrement: true,
+        type: Sequelize.UUID,
         primaryKey: true,
+        allowNull: false,
+        defaultValue: Sequelize.literal('uuid_generate_v4()'),
       },
-      transaction_type: {
+      transaction_method: {
         type: Sequelize.STRING,
       },
       user_id: {
         type: Sequelize.UUID,
-        references: {
-          model: 'Users_Banks',
-          key: 'user_id',
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL',
+        allowNull: false,
       },
       amount: {
         type: Sequelize.FLOAT,
@@ -32,6 +27,7 @@ module.exports = {
       },
       merchant_id: {
         type: Sequelize.UUID,
+        allowNull: false,
         references: {
           model: 'Merchants',
           key: 'merchant_id',
@@ -47,6 +43,15 @@ module.exports = {
         },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
+      },
+      palm_id: {
+        type: Sequelize.STRING,
+      },
+      palmpay_image1: {
+        type: Sequelize.STRING,
+      },
+      palmpay_image2: {
+        type: Sequelize.STRING,
       },
       createdAt: {
         allowNull: false,
