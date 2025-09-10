@@ -2,13 +2,14 @@
 const { Model, Sequelize } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Transactions extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
     static associate(models) {
-      // define association here
+      Transactions.belongsTo(models.Merchants, {
+        foreignKey: 'merchant_id',
+      });
+
+      Transactions.hasOne(models.Xendit_QR_Payments, {
+        foreignKey: 'transaction_id',
+      });
     }
   }
   Transactions.init(
@@ -23,20 +24,24 @@ module.exports = (sequelize, DataTypes) => {
       transaction_method: DataTypes.STRING,
       user_id: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
       },
       amount: DataTypes.FLOAT,
       status: DataTypes.STRING,
-      timestamp: DataTypes.DATE,
+      timestamp: {
+        type: DataTypes.DATE, // watku sukses transaksi
+        allowNull: true,
+      },
+      receipt_path: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
       merchant_id: {
         type: DataTypes.UUID,
         allowNull: false,
       },
       sn_edc: DataTypes.STRING,
       palm_id: DataTypes.STRING,
-      // PENAMBAHAN PENTING: Kolom untuk gambar tetap dibutuhkan
-      palmpay_image1: DataTypes.STRING,
-      palmpay_image2: DataTypes.STRING,
     },
     {
       sequelize,

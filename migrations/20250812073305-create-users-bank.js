@@ -28,12 +28,6 @@ module.exports = {
         type: Sequelize.STRING,
         unique: true,
       },
-      palmpay_image_1: {
-        type: Sequelize.STRING,
-      },
-      palmpay_image_2: {
-        type: Sequelize.STRING,
-      },
       balance: {
         type: Sequelize.FLOAT,
       },

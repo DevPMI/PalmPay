@@ -1,5 +1,13 @@
 /** @format */
 
+const notFound = (req, res) => {
+  res.status(404).send({
+    status: false,
+    statusCode: 404,
+    message: 'Not Found!',
+  });
+};
+
 const handleError = (err, req, res, next) => {
   console.log(err);
   let code = 500;
@@ -32,6 +40,15 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Saldo tidak mencukupi.') {
     code = 400;
     message = 'Saldo tidak mencukupi.';
+  } else if (err.name === 'Parameter `merchant_id` wajib diisi.') {
+    code = 400;
+    message = 'Parameter `merchant_id` wajib diisi.';
+  } else if (err.name === 'Parameter `sn_edc` wajib diisi.') {
+    code = 400;
+    message = 'Parameter `sn_edc` wajib diisi.';
+  } else if (err.name === 'Parameter `amount` harus berupa angka dan minimal 1000.') {
+    code = 400;
+    message = 'Parameter `amount` harus berupa angka dan minimal 1000.';
   }
 
   // 401
@@ -59,6 +76,9 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'SN EDC belum terdaftar.') {
     code = 401;
     message = 'SN EDC belum terdaftar.';
+  } else if (err.name === 'Pengguna dengan Palm ID tersebut tidak terdaftar.') {
+    code = 401;
+    message = 'Pengguna dengan Palm ID tersebut tidak terdaftar.';
   }
 
   // 403
@@ -113,11 +133,24 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Merchant tidak valid atau tidak ditemukan.') {
     code = 404;
     message = 'Merchant tidak valid atau tidak ditemukan.';
+  } else if (err.name === 'Merchant tidak ditemukan.') {
+    code = 404;
+    message = 'Merchant tidak ditemukan.';
+  } else if (err.name === 'SN EDC tidak terdaftar.') {
+    code = 404;
+    message = 'SN EDC tidak terdaftar.';
+  } else if (err.name === 'Device ini tidak terdaftar untuk merchant yang bersangkutan.') {
+    code = 404;
+    message = 'Device ini tidak terdaftar untuk merchant yang bersangkutan.';
+  } else if (err.name === 'Device tidak valid atau tidak terdaftar untuk merchant ini.') {
+    code = 404;
+    message = 'Device tidak valid atau tidak terdaftar untuk merchant ini.';
   }
+
   res.status(code).json({
     statusCode: code,
     message: message,
   });
 };
 
-module.exports = handleError;
+module.exports = { notFound, handleError };

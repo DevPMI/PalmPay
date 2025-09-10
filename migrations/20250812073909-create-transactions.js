@@ -14,7 +14,7 @@ module.exports = {
       },
       user_id: {
         type: Sequelize.UUID,
-        allowNull: false,
+        allowNull: true,
       },
       amount: {
         type: Sequelize.FLOAT,
@@ -24,6 +24,11 @@ module.exports = {
       },
       timestamp: {
         type: Sequelize.DATE,
+        allowNull: true,
+      },
+      receipt_path: {
+        type: Sequelize.STRING,
+        allowNull: true,
       },
       merchant_id: {
         type: Sequelize.UUID,
@@ -45,12 +50,6 @@ module.exports = {
         onDelete: 'SET NULL',
       },
       palm_id: {
-        type: Sequelize.STRING,
-      },
-      palmpay_image1: {
-        type: Sequelize.STRING,
-      },
-      palmpay_image2: {
         type: Sequelize.STRING,
       },
       createdAt: {

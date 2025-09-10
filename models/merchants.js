@@ -5,19 +5,17 @@ const { randomBytes } = require('crypto');
 module.exports = (sequelize, DataTypes) => {
   class Merchants extends Model {
     static associate(models) {
-      // Merchants punya banyak Edc_Devices
       Merchants.hasMany(models.Edc_Devices, {
+        foreignKey: 'merchant_id',
+      });
+
+      Merchants.hasMany(models.Transactions, {
         foreignKey: 'merchant_id',
       });
 
       Merchants.hasMany(models.Palmpay_Devices, {
         foreignKey: 'merchant_id',
       });
-
-      // // Hubungan: Merchant adalah milik satu Users_Bank
-      // Merchants.belongsTo(models.Users_Banks, {
-      //   foreignKey: 'user_id', // Foreign key ada di tabel Merchants
-      // });
     }
   }
   Merchants.init(
