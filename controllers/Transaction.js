@@ -23,6 +23,14 @@ class Controller {
       } = req.body;
 
       // 2. Validasi input
+      if (
+        transaction_method !== 'PALMPAY' &&
+        transaction_method !== 'CONTACTLESS' &&
+        transaction_method !== 'XENDIT_QR_DYNAMIC'
+      ) {
+        throw { name: 'Tipe pembayaran tidak valid.' };
+      }
+
       if (!palm_id || !merchant_id || !amount || !transaction_method) {
         throw { name: 'Data transaksi tidak lengkap.' };
       }

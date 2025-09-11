@@ -49,6 +49,9 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Parameter `amount` harus berupa angka dan minimal 1000.') {
     code = 400;
     message = 'Parameter `amount` harus berupa angka dan minimal 1000.';
+  } else if (err.name === 'Tipe pembayaran tidak valid.') {
+    code = 400;
+    message = 'Tipe pembayaran tidak valid.';
   }
 
   // 401
