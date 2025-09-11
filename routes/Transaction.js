@@ -6,9 +6,9 @@ const authentication = require('../middleware/Authentication');
 
 const userRoute = require('express').Router();
 
-userRoute.post('/palmpay', authentication, Controller.palmpay);
+userRoute.post('/', authentication, Controller.palmpay);
 
-userRoute.post('/', authentication, Controller.getQRCodeStatus);
+userRoute.post('/getstatus-qr', authentication, Controller.getQRCodeStatus);
 userRoute.post('/create-qr', authentication, Controller.createQRCode);
 userRoute.get('/get-qrid/:qrId', authentication, Controller.getQRCodeByID);
 userRoute.get('/get-all-trx', authentication, Controller.inquiryAllTransaction);

@@ -1,5 +1,7 @@
 'use strict';
 const { Model, Sequelize } = require('sequelize');
+const crypto = require('crypto');
+
 module.exports = (sequelize, DataTypes) => {
   class Transactions extends Model {
     static associate(models) {
@@ -20,6 +22,12 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.UUID,
         allowNull: false,
         defaultValue: Sequelize.literal('uuid_generate_v4()'),
+      },
+      // Untuk kebutuhan ID external seperti di struk dll
+      receipt_id: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: false,
       },
       transaction_method: DataTypes.STRING,
       user_id: {
@@ -47,6 +55,14 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: 'Transactions',
       timestamps: true,
+      hooks: {
+        beforeValidate: (transaction, options) => {
+          if (transaction.isNewRecord && !transaction.receipt_id) {
+            const randomPart = crypto.randomBytes(4).toString('hex').toUpperCase();
+            transaction.receipt_id = `TRX-${randomPart}`; // Contoh hasil: 'TRX-9F4A1B8E'
+          }
+        },
+      },
     }
   );
   return Transactions;

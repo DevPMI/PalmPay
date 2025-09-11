@@ -30,6 +30,11 @@ module.exports = {
         type: Sequelize.STRING,
         allowNull: true,
       },
+      receipt_id: {
+        type: Sequelize.STRING,
+        unique: true,
+        allowNull: false,
+      },
       merchant_id: {
         type: Sequelize.UUID,
         allowNull: false,

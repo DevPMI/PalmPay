@@ -52,6 +52,15 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Tipe pembayaran tidak valid.') {
     code = 400;
     message = 'Tipe pembayaran tidak valid.';
+  } else if (err.name === 'Palm ID wajib diisi untuk transaksi PALMPAY.') {
+    code = 400;
+    message = 'Palm ID wajib diisi untuk transaksi PALMPAY.';
+  } else if (err.name === 'Parameter `amount` wajib diisi.') {
+    code = 400;
+    message = 'Parameter `amount` wajib diisi.';
+  } else if (err.name === 'Metode pembayaran ini tidak didukung oleh endpoint ini.') {
+    code = 400;
+    message = 'Metode pembayaran ini tidak didukung oleh endpoint ini.';
   }
 
   // 401
@@ -148,6 +157,9 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === 'Device tidak valid atau tidak terdaftar untuk merchant ini.') {
     code = 404;
     message = 'Device tidak valid atau tidak terdaftar untuk merchant ini.';
+  } else if (err.name === 'Transaksi tidak ditemukan.') {
+    code = 404;
+    message = 'Transaksi tidak ditemukan.';
   }
 
   res.status(code).json({
