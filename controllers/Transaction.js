@@ -3,7 +3,7 @@ const { Transactions, Users_Banks, Merchants, Edc_Devices, Xendit_QR_Payments } 
 const { receiptTemplate1 } = require('../helper/html/receiptTemplate');
 const path = require('path');
 const { default: axios } = require('axios');
-const mqttHandler = require('../helper/mqttHandler');
+const mqttClient = require('../helper/mqttHandler');
 const fs = require('fs').promises;
 const puppeteer = require('puppeteer');
 class Controller {
@@ -265,11 +265,13 @@ class Controller {
   }
 
   static async callbackQRTransaction(req, res, next) {
-    // const fs = require('fs').promises;
     const t = await db.sequelize.transaction();
-    let browser; // Deklarasikan browser di luar try-catch
+
+    let browser;
+
     try {
       const callbackData = req.body;
+
       if (!callbackData.data || callbackData.event !== 'qr.payment') {
         return res.status(200).send('Event ignored');
       }
@@ -277,61 +279,38 @@ class Controller {
       const paymentData = callbackData.data;
       console.log('PAYMENT DATA', paymentData);
 
-      // 1. CARI TRANSAKSI MENGGUNAKAN LOGIKA ANDA YANG SUDAH BENAR (DARI KODE 2)
       const qrPayment = await Xendit_QR_Payments.findOne({
         where: { external_id: paymentData.reference_id },
+        transaction: t,
       });
 
       if (!qrPayment || qrPayment.status === 'completed') {
+        await t.commit();
         return res.status(200).send('Transaction not found or already processed.');
       }
 
       const transaction = await Transactions.findByPk(qrPayment.transaction_id, {
-        include: Merchants, // Sertakan data merchant untuk struk
+        include: Merchants,
+        transaction: t,
       });
+
       if (!transaction) {
+        await t.commit();
         return res.status(200).send('Parent transaction not found.');
       }
 
-      if (transaction.amount != paymentData.amount) {
+      if (transaction.amount !== paymentData.amount) {
         await qrPayment.update({ status: 'FAILED_AMOUNT_MISMATCH' }, { transaction: t });
         await transaction.update({ status: 'FAILED' }, { transaction: t });
         await t.commit();
-
         return res.status(200).send('Amount mismatch.');
       }
 
-      // 2. TAMBAHKAN LOGIKA PEMBUATAN PDF DARI KODE 1
-      let receiptPath = null;
-      try {
-        const outputDir = path.join(__dirname, '../public/receipts');
-        await fs.mkdir(outputDir, { recursive: true });
-
-        const fileName = `receipt-${transaction.transaction_id}.pdf`;
-        const outputPath = path.join(outputDir, fileName);
-
-        browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-        const page = await browser.newPage();
-
-        // Siapkan data untuk template struk
-        const receiptData = {
-          ...paymentData,
-          merchant_name: transaction.Merchant.merchant_name, // Ambil nama merchant
-        };
-
-        await page.setContent(receiptTemplate1(receiptData), { waitUntil: 'domcontentloaded' });
-        await page.pdf({ path: outputPath, format: 'A6', printBackground: true });
-
-        receiptPath = `/receipts/${fileName}`; // Path yang bisa diakses publik
-      } catch (pdfError) {
-        console.error(`Gagal membuat PDF untuk transaksi ${transaction.transaction_id}:`, pdfError);
-      }
-
-      // 3. UPDATE DATABASE (LOGIKA ANDA DARI KODE 2 SUDAH BENAR)
+      // Update database status inside the transaction
       await qrPayment.update(
         {
           status: 'completed',
-          xendit_payment_id: paymentData.id, // Simpan ID pembayaran
+          xendit_payment_id: paymentData.id,
         },
         { transaction: t }
       );
@@ -340,40 +319,72 @@ class Controller {
         {
           status: 'berhasil',
           timestamp: new Date(paymentData.created),
-          receipt_path: receiptPath, // Simpan path PDF
         },
         { transaction: t }
       );
 
+      // Commit the transaction to release the database connection immediately
       await t.commit();
 
-      // 4. TAMBAHKAN LOGIKA PENGIRIMAN MQTT DARI KODE 1
-      console.log(`Transaksi ${transaction.transaction_id} berhasil dibayar. Mengirim notifikasi MQTT...`);
-      const mqttClient = new mqttHandler();
-      mqttClient.connect();
-
-      const mqttPayload = {
-        devices_sn: transaction.sn_edc,
-        payment_detail: paymentData.payment_detail,
-        reference_id: paymentData.reference_id,
-        amount: paymentData.amount,
-        status: 'SUCCESS', // Kirim status yang jelas
-        receipt_path: receiptPath ? `${process.env.BASE_URL_BE}${receiptPath}` : null,
-      };
-
-      mqttClient.sendMessage(JSON.stringify(mqttPayload));
-
-      // 5. KIRIM RESPONS KE XENDIT
+      // Respond to Xendit immediately before starting the long-running tasks
       res.status(200).json({ message: 'Callback processed successfully.' });
+
+      // --- Asynchronous Tasks (non-blocking) ---
+      // These tasks run in the background after the response has been sent
+      (async () => {
+        let receiptPath = null;
+        try {
+          const outputDir = path.join(__dirname, '../public/receipts');
+          await fs.mkdir(outputDir, { recursive: true });
+
+          const fileName = `receipt-${transaction.transaction_id}.pdf`;
+          const outputPath = path.join(outputDir, fileName);
+
+          browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+          const page = await browser.newPage();
+
+          const receiptData = {
+            ...paymentData,
+            merchant_name: transaction.Merchant.merchant_name,
+          };
+
+          await page.setContent(receiptTemplate1(receiptData), { waitUntil: 'domcontentloaded' });
+          await page.pdf({ path: outputPath, format: 'A6', printBackground: true });
+
+          receiptPath = `/receipts/${fileName}`;
+
+          // Update the transaction with the receipt path
+          await Transactions.update(
+            { receipt_path: receiptPath },
+            {
+              where: { transaction_id: transaction.transaction_id },
+            }
+          );
+        } catch (pdfError) {
+          console.error(`Gagal membuat PDF untuk transaksi ${transaction.transaction_id}:`, pdfError);
+        } finally {
+          if (browser) await browser.close();
+        }
+
+        // Send MQTT message with the receipt path
+        const mqttPayload = {
+          devices_sn: transaction.sn_edc,
+          payment_detail: paymentData.payment_detail,
+          reference_id: paymentData.reference_id,
+          amount: paymentData.amount,
+          status: 'SUCCESS',
+          receipt_path: receiptPath ? `${process.env.BASE_URL_BE}${receiptPath}` : null,
+        };
+
+        // Use the globally imported MQTT handler
+        mqttClient.sendMessage(JSON.stringify(mqttPayload));
+      })();
     } catch (error) {
+      // Only rollback if the transaction hasn't been committed yet
       if (t && !t.finished) {
         await t.rollback();
       }
       next(error);
-    } finally {
-      if (browser) {
-        await browser.close(); // Pastikan browser selalu ditutup
-      }
     }
   }
 

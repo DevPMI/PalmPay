@@ -6,7 +6,7 @@ const express = require('express');
 const cors = require('cors');
 const router = require('./routes');
 const { handleError, notFound } = require('./middleware/handleError');
-var mqttHandler = require('./helper/mqttHandler');
+const mqttClient = require('./helper/mqttHandler');
 
 const app = express();
 
@@ -21,8 +21,8 @@ app.use('/', router);
 app.use(notFound);
 app.use(handleError);
 
-var mqttClient = new mqttHandler();
-mqttClient.connect();
+// const mqttClient = new mqttHandler();
+// mqttClient.connect();
 
 app.post('/broadcast', function (req, res) {
   mqttClient.sendMessage(req.body);
@@ -30,3 +30,5 @@ app.post('/broadcast', function (req, res) {
 });
 
 app.listen(port, () => console.log(`CONNECT ${port}`));
+
+module.exports = mqttClient;

@@ -46,4 +46,7 @@ class MqttHandler {
   }
 }
 
-module.exports = MqttHandler;
+const mqttClient = new MqttHandler();
+mqttClient.connect();
+
+module.exports = mqttClient;
