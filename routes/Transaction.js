@@ -10,6 +10,7 @@ userRoute.post('/', authentication, Controller.palmpay);
 
 userRoute.post('/getstatus-qr', authentication, Controller.getQRCodeStatus);
 userRoute.post('/create-qr', authentication, Controller.createQRCode);
+userRoute.get('/get-static-qr/:merchantId', authentication, Controller.getStaticQRCode);
 userRoute.get('/get-qrid/:qrId', authentication, Controller.getQRCodeByID);
 userRoute.get('/get-all-trx', authentication, Controller.inquiryAllTransaction);
 userRoute.post('/payment-callback', Controller.callbackQRTransaction);

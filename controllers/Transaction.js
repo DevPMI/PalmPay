@@ -238,6 +238,29 @@ class Controller {
     }
   }
 
+  static async getStaticQRCode(req, res, next) {
+    try {
+      const { merchantId } = req.params;
+
+      // Cari merchant dan QR statisnya di database
+      const merchant = await Merchants.findByPk(merchantId);
+
+      if (!merchant || !merchant.static_qr_string) {
+        throw { name: 'QR Code statis tidak ditemukan untuk merchant ini.' };
+      }
+
+      res.status(200).json({
+        statusCode: 200,
+        message: 'QR Code statis berhasil diambil.',
+        data: {
+          qr_string: merchant.static_qr_string,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getQRCodeStatus(req, res, next) {
     try {
       const { transaction_id } = req.params; // Gunakan transaction_id
@@ -265,125 +288,168 @@ class Controller {
   }
 
   static async callbackQRTransaction(req, res, next) {
-    const t = await db.sequelize.transaction();
-
-    let browser;
+    let t = null; // Inisialisasi transaksi di luar blok try
 
     try {
       const callbackData = req.body;
+      const paymentData = callbackData.data;
+      const transactionType = paymentData.type;
 
-      if (!callbackData.data || callbackData.event !== 'qr.payment') {
+      // Pastikan ini adalah event pembayaran QR yang valid
+      if (!paymentData || callbackData.event !== 'qr.payment') {
         return res.status(200).send('Event ignored');
       }
 
-      const paymentData = callbackData.data;
       console.log('PAYMENT DATA', paymentData);
 
-      const qrPayment = await Xendit_QR_Payments.findOne({
-        where: { external_id: paymentData.reference_id },
-        transaction: t,
-      });
+      let transaction;
+      let transactionId;
 
-      if (!qrPayment || qrPayment.status === 'completed') {
+      t = await db.sequelize.transaction(); // Mulai transaksi
+
+      if (transactionType === 'DYNAMIC') {
+        // Logika untuk QR Dinamis: Cari transaksi yang sudah ada
+        transaction = await Transactions.findByPk(paymentData.reference_id, {
+          include: Merchants,
+          transaction: t,
+        });
+
+        if (!transaction) {
+          await t.commit();
+          return res.status(200).send('Dynamic transaction not found.');
+        }
+
+        transactionId = transaction.transaction_id;
+      } else if (transactionType === 'STATIC') {
+        // Logika untuk QR Statis: Buat transaksi baru
+        const merchantCode = paymentData.reference_id;
+        const merchant = await Merchants.findOne({
+          where: { merchant_code: merchantCode },
+          transaction: t,
+        });
+
+        if (!merchant) {
+          await t.commit();
+          return res.status(200).send('Merchant for static QR not found.');
+        }
+
+        // Buat transaksi baru di tabel Transactions
+        transaction = await Transactions.create(
+          {
+            transaction_method: 'XENDIT_QR_STATIC',
+            status: 'pending', // Set status awal pending
+            amount: paymentData.amount,
+            merchant_id: merchant.merchant_id,
+            sn_edc: null, // Asumsi tidak ada EDC SN yang terkait
+            timestamp: new Date(paymentData.created),
+            xendit_payment_id: paymentData.id,
+          },
+          { transaction: t }
+        );
+
+        transactionId = transaction.transaction_id;
+      } else {
+        // Tipe QR tidak didukung
         await t.commit();
-        return res.status(200).send('Transaction not found or already processed.');
+        return res.status(200).send('Unsupported QR type.');
       }
 
-      const transaction = await Transactions.findByPk(qrPayment.transaction_id, {
-        include: Merchants,
-        transaction: t,
-      });
-
-      if (!transaction) {
+      // --- Perbaikan Point 2: Penanganan Status 'FAILED' ---
+      if (paymentData.status === 'SUCCEEDED') {
+        // Update status transaksi utama menjadi 'berhasil'
+        await Transactions.update(
+          {
+            status: 'berhasil',
+            timestamp: new Date(paymentData.created),
+          },
+          {
+            where: { transaction_id: transactionId },
+            transaction: t,
+          }
+        );
+      } else if (paymentData.status === 'FAILED') {
+        // Update status transaksi menjadi 'gagal'
+        await Transactions.update(
+          {
+            status: 'gagal',
+            timestamp: new Date(paymentData.created),
+          },
+          {
+            where: { transaction_id: transactionId },
+            transaction: t,
+          }
+        );
+      } else {
+        // Jika status lain (misal: EXPIRED, PENDING), abaikan
         await t.commit();
-        return res.status(200).send('Parent transaction not found.');
+        return res.status(200).send(`Transaction status is ${paymentData.status}.`);
       }
 
-      if (transaction.amount !== paymentData.amount) {
-        await qrPayment.update({ status: 'FAILED_AMOUNT_MISMATCH' }, { transaction: t });
-        await transaction.update({ status: 'FAILED' }, { transaction: t });
-        await t.commit();
-        return res.status(200).send('Amount mismatch.');
-      }
-
-      // Update database status inside the transaction
-      await qrPayment.update(
-        {
-          status: 'completed',
-          xendit_payment_id: paymentData.id,
-        },
-        { transaction: t }
-      );
-
-      await transaction.update(
-        {
-          status: 'berhasil',
-          timestamp: new Date(paymentData.created),
-        },
-        { transaction: t }
-      );
-
-      // Commit the transaction to release the database connection immediately
       await t.commit();
 
-      // Respond to Xendit immediately before starting the long-running tasks
       res.status(200).json({ message: 'Callback processed successfully.' });
 
-      // --- Asynchronous Tasks (non-blocking) ---
-      // These tasks run in the background after the response has been sent
+      // --- Perbaikan Point 5: Proses Asinkron dengan Penanganan Error ---
       (async () => {
+        let browser;
         let receiptPath = null;
+        let mqttPayload;
+
         try {
+          // Logika pembuatan PDF
           const outputDir = path.join(__dirname, '../public/receipts');
           await fs.mkdir(outputDir, { recursive: true });
-
-          const fileName = `receipt-${transaction.transaction_id}.pdf`;
+          const fileName = `receipt-${transactionId}.pdf`;
           const outputPath = path.join(outputDir, fileName);
 
           browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
           const page = await browser.newPage();
+          const merchantName = transaction.Merchant?.merchant_name || 'N/A';
 
           const receiptData = {
             ...paymentData,
-            merchant_name: transaction.Merchant.merchant_name,
+            merchant_name: merchantName,
           };
 
           await page.setContent(receiptTemplate1(receiptData), { waitUntil: 'domcontentloaded' });
           await page.pdf({ path: outputPath, format: 'A6', printBackground: true });
-
           receiptPath = `/receipts/${fileName}`;
 
-          // Update the transaction with the receipt path
-          await Transactions.update(
-            { receipt_path: receiptPath },
-            {
-              where: { transaction_id: transaction.transaction_id },
-            }
-          );
+          // Update path struk di database
+          await Transactions.update({ receipt_path: receiptPath }, { where: { transaction_id: transactionId } });
         } catch (pdfError) {
-          console.error(`Gagal membuat PDF untuk transaksi ${transaction.transaction_id}:`, pdfError);
+          console.error(`Gagal membuat PDF untuk transaksi ${transactionId}:`, pdfError);
+          receiptPath = null; // Pastikan receiptPath menjadi null jika gagal
+          await Transactions.update(
+            { status: 'berhasil_tanpa_struk_pdf', receipt_path: null },
+            { where: { transaction_id: transactionId } }
+          );
         } finally {
           if (browser) await browser.close();
         }
 
-        // Send MQTT message with the receipt path
-        const mqttPayload = {
-          devices_sn: transaction.sn_edc,
-          payment_detail: paymentData.payment_detail,
-          reference_id: paymentData.reference_id,
-          amount: paymentData.amount,
-          status: 'SUCCESS',
-          receipt_path: receiptPath ? `${process.env.BASE_URL_BE}${receiptPath}` : null,
-        };
+        try {
+          // Siapkan payload MQTT
+          mqttPayload = {
+            devices_sn: transaction.sn_edc,
+            payment_detail: paymentData.payment_detail,
+            reference_id: transactionId,
+            amount: paymentData.amount,
+            status: 'SUCCESS', // Pastikan status di sini tetap SUCCESS untuk notifikasi
+            receipt_path: receiptPath ? `${process.env.BASE_URL_BE}${receiptPath}` : null,
+          };
 
-        // Use the globally imported MQTT handler
-        mqttClient.sendMessage(JSON.stringify(mqttPayload));
+          // Kirim pesan MQTT
+          await mqttClient.sendMessage(JSON.stringify(mqttPayload));
+        } catch (mqttError) {
+          console.error(`Gagal mengirim pesan MQTT untuk transaksi ${transactionId}:`, mqttError);
+        }
       })();
     } catch (error) {
-      // Only rollback if the transaction hasn't been committed yet
       if (t && !t.finished) {
         await t.rollback();
       }
+      console.error('Error in callbackQRTransaction:', error);
       next(error);
     }
   }

@@ -39,7 +39,10 @@ module.exports = (sequelize, DataTypes) => {
       phone_number: DataTypes.STRING,
       password: DataTypes.STRING,
       address: DataTypes.STRING,
-
+      static_qr_string: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       deletedAt: {
         type: DataTypes.DATE,
         allowNull: true,
