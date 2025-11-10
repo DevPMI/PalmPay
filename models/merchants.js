@@ -39,6 +39,10 @@ module.exports = (sequelize, DataTypes) => {
       phone_number: DataTypes.STRING,
       password: DataTypes.STRING,
       address: DataTypes.STRING,
+      balance: {
+        type: DataTypes.DECIMAL(19, 2),
+        defaultValue: 0.0,
+      },
       static_qr_string: {
         type: DataTypes.TEXT,
         allowNull: true,

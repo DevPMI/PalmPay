@@ -246,6 +246,15 @@ exports.callbackQRTransaction = async (req, res) => {
       { transaction: t }
     );
 
+    // --- LOGIKA PENAMBAHAN SALDO MERCHANT ---
+    const merchant = await db.Merchants.findByPk(transaction.merchant_id, { transaction: t });
+    if (merchant) {
+      await merchant.increment('balance', { by: callbackData.amount, transaction: t });
+      // Tambahkan entri ke fake history
+      HistoryController.addFakeHistoryEntry({ amount: callbackData.amount });
+    }
+    // --- AKHIR LOGIKA ---
+
     // Simpan semua perubahan ke database
     await t.commit(); // <<< PROSES UTAMA SELESAI DI SINI
 

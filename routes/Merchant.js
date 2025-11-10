@@ -1,11 +1,12 @@
 /** @format */
 
+const express = require('express');
+const router = express.Router();
 const Controller = require('../controllers/Merchant');
 const authentication = require('../middleware/Authentication');
 
-const userRoute = require('express').Router();
+router.post('/login', Controller.login);
+router.post('/register', Controller.register);
+router.get('/profile', authentication, Controller.getProfile); // Rute baru
 
-userRoute.post('/register', Controller.register);
-userRoute.post('/login', Controller.login);
-
-module.exports = userRoute;
+module.exports = router;

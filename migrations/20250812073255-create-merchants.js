@@ -33,6 +33,10 @@ module.exports = {
       address: {
         type: Sequelize.STRING,
       },
+      balance: {
+        type: Sequelize.DECIMAL(19, 2),
+        defaultValue: 0.0,
+      },
       bank: {
         type: Sequelize.STRING,
       },
