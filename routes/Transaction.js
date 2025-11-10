@@ -2,7 +2,6 @@
 
 const Controller = require('../controllers/Transaction');
 const authentication = require('../middleware/Authentication');
-// const XenditTransactionController = require('../controllers/Xendit/xenditTransactionController');
 
 const userRoute = require('express').Router();
 
@@ -14,6 +13,7 @@ userRoute.get('/get-static-qr/:merchantId', authentication, Controller.getStatic
 userRoute.get('/get-qrid/:qrId', authentication, Controller.getQRCodeByID);
 userRoute.get('/get-all-trx', authentication, Controller.inquiryAllTransaction);
 userRoute.post('/payment-callback', Controller.callbackQRTransaction);
+userRoute.post('/payment-callback-raw', Controller.callbackQRTransactionRaw); // Balikin res xendit bulat2
 userRoute.get('/receipt/:referenceId', authentication, Controller.streamPDFInvoice);
 
 module.exports = userRoute;

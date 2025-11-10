@@ -62,7 +62,6 @@ class Controller {
         address,
         bank,
         account_number,
-        status_aktif: true,
       };
 
       const data = await Merchants.create(body);
@@ -71,6 +70,25 @@ class Controller {
         statusCode: 201,
         message: `Selamat Merchant ${merchant_name}, anda Berhasil Register`,
         data: data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // GET PROFILE
+  static async getProfile(req, res, next) {
+    try {
+      const merchant = await Merchants.findByPk(req.user.merchant_id);
+
+      if (!merchant) {
+        throw { name: 'Merchant tidak ditemukan.' };
+      }
+
+      res.status(200).json({
+        statusCode: 200,
+        message: 'Profil merchant berhasil diambil.',
+        data: merchant,
       });
     } catch (error) {
       next(error);
