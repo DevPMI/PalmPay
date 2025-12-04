@@ -295,14 +295,13 @@ class Controller {
     }
   }
 
-  static async callbackQRTransaction(req, res, next) {
-    let t = null; // Inisialisasi transaksi di luar blok try
+static async callbackQRTransaction(req, res, next) {
+    let t = null; 
 
     try {
       const callbackData = req.body;
       const paymentData = callbackData.data;
 
-      // Pastikan ini adalah event pembayaran QR yang valid
       if (!paymentData || callbackData.event !== 'qr.payment') {
         return res.status(200).send('Event ignored');
       }
@@ -313,10 +312,9 @@ class Controller {
       let transaction;
       let transactionId;
 
-      t = await db.sequelize.transaction(); // Mulai transaksi
+      t = await db.sequelize.transaction(); 
 
       if (transactionType === 'DYNAMIC') {
-        // Logika untuk QR Dinamis: Cari transaksi yang sudah ada
         transaction = await Transactions.findByPk(paymentData.reference_id, {
           include: Merchants,
           transaction: t,
@@ -329,7 +327,6 @@ class Controller {
 
         transactionId = transaction.transaction_id;
       } else if (transactionType === 'STATIC') {
-        // Logika untuk QR Statis: Buat transaksi baru
         const merchantCode = paymentData.reference_id;
         const merchant = await Merchants.findOne({
           where: { merchant_code: merchantCode },
@@ -341,30 +338,28 @@ class Controller {
           return res.status(200).send('Merchant for static QR not found.');
         }
 
-        // Buat transaksi baru di tabel Transactions
         transaction = await Transactions.create(
           {
             transaction_method: 'XENDIT_QR_STATIC',
-            status: 'pending', // Set status awal pending
+            status: 'pending',
             amount: paymentData.amount,
             merchant_id: merchant.merchant_id,
-            sn_edc: null, // Asumsi tidak ada EDC SN yang terkait
+            sn_edc: null, 
             timestamp: new Date(paymentData.created),
             xendit_payment_id: paymentData.id,
           },
           { transaction: t }
         );
-
+        
+        // Manual inject Merchant data
+        transaction.Merchant = merchant; 
         transactionId = transaction.transaction_id;
       } else {
-        // Tipe QR tidak didukung
         await t.commit();
         return res.status(200).send('Unsupported QR type.');
       }
 
-      // --- Perbaikan Point 2: Penanganan Status 'FAILED' ---
       if (paymentData.status === 'SUCCEEDED') {
-        // Update status transaksi utama menjadi 'berhasil'
         await Transactions.update(
           {
             status: 'berhasil',
@@ -376,20 +371,16 @@ class Controller {
           }
         );
 
-        // --- LOGIKA PENAMBAHAN SALDO MERCHANT ---
-        const currentTransaction = await Transactions.findByPk(transactionId, {
-          include: Merchants,
-          transaction: t,
-        });
-
-        if (currentTransaction && currentTransaction.Merchant) {
-          await currentTransaction.Merchant.increment('balance', { by: paymentData.amount, transaction: t });
-          // Tambahkan entri ke fake history
-          HistoryController.addFakeHistoryEntry({ amount: paymentData.amount });
+        if (transaction && transaction.Merchant) {
+            await Merchants.increment('balance', { 
+                by: paymentData.amount, 
+                where: { merchant_id: transaction.Merchant.merchant_id },
+                transaction: t 
+            });
+            
+            HistoryController.addFakeHistoryEntry({ amount: paymentData.amount });
         }
-        // --- AKHIR LOGIKA ---
       } else if (paymentData.status === 'FAILED') {
-        // Update status transaksi menjadi 'gagal'
         await Transactions.update(
           {
             status: 'gagal',
@@ -400,72 +391,36 @@ class Controller {
             transaction: t,
           }
         );
-      } else {
-        // Jika status lain (misal: EXPIRED, PENDING), abaikan
-        await t.commit();
-        return res.status(200).send(`Transaction status is ${paymentData.status}.`);
       }
 
       await t.commit();
 
+      // ============================================================
+      // MQTT NOTIFICATION (FAST & LIGHTWEIGHT)
+      // ============================================================
+      try {
+        if (paymentData.status === 'SUCCEEDED') {
+            console.log(`[MQTT] Sending notification for TRX: ${transactionId}`);
+            
+            const mqttPayload = {
+                devices_sn: transaction.sn_edc || null,
+                payment_detail: paymentData.payment_detail,
+                reference_id: transactionId,
+                amount: paymentData.amount,
+                status: 'SUCCESS', 
+                receipt_path: null // Tidak ada PDF
+            };
+
+            // Kirim pesan MQTT
+            mqttClient.sendMessage(JSON.stringify(mqttPayload));
+        }
+      } catch (mqttError) {
+        console.error(`[MQTT ERROR] Failed to send message:`, mqttError);
+      }
+      // ============================================================
+
       res.status(200).json({ message: 'Callback processed successfully.' });
 
-      // --- Perbaikan Point 5: Proses Asinkron dengan Penanganan Error ---
-      (async () => {
-        let browser;
-        let receiptPath = null;
-        let mqttPayload;
-
-        try {
-          // Logika pembuatan PDF
-          const outputDir = path.join(__dirname, '../public/receipts');
-          await fs.mkdir(outputDir, { recursive: true });
-          const fileName = `receipt-${transactionId}.pdf`;
-          const outputPath = path.join(outputDir, fileName);
-
-          browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-          const page = await browser.newPage();
-          const merchantName = transaction.Merchant?.merchant_name || 'N/A';
-
-          const receiptData = {
-            ...paymentData,
-            merchant_name: merchantName,
-          };
-
-          await page.setContent(receiptTemplate1(receiptData), { waitUntil: 'domcontentloaded' });
-          await page.pdf({ path: outputPath, format: 'A6', printBackground: true });
-          receiptPath = `/receipts/${fileName}`;
-
-          // Update path struk di database
-          await Transactions.update({ receipt_path: receiptPath }, { where: { transaction_id: transactionId } });
-        } catch (pdfError) {
-          console.error(`Gagal membuat PDF untuk transaksi ${transactionId}:`, pdfError);
-          receiptPath = null; // Pastikan receiptPath menjadi null jika gagal
-          await Transactions.update(
-            { status: 'berhasil_tanpa_struk_pdf', receipt_path: null },
-            { where: { transaction_id: transactionId } }
-          );
-        } finally {
-          if (browser) await browser.close();
-        }
-
-        try {
-          // Siapkan payload MQTT
-          mqttPayload = {
-            devices_sn: transaction.sn_edc,
-            payment_detail: paymentData.payment_detail,
-            reference_id: transactionId,
-            amount: paymentData.amount,
-            status: 'SUCCESS', // Pastikan status di sini tetap SUCCESS untuk notifikasi
-            receipt_path: receiptPath ? `${process.env.BASE_URL_BE}${receiptPath}` : null,
-          };
-
-          // Kirim pesan MQTT
-          await mqttClient.sendMessage(JSON.stringify(mqttPayload));
-        } catch (mqttError) {
-          console.error(`Gagal mengirim pesan MQTT untuk transaksi ${transactionId}:`, mqttError);
-        }
-      })();
     } catch (error) {
       if (t && !t.finished) {
         await t.rollback();
