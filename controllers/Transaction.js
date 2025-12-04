@@ -334,7 +334,7 @@ class Controller {
         return res.status(200).send("Event ignored");
       }
 
-      const transactionType = paymentData.type;
+      const transactionType = paymentData.type; //STATIC
       console.log("PAYMENT DATA", paymentData);
 
       let transaction;
@@ -360,15 +360,20 @@ class Controller {
         transactionId = transaction.transaction_id;
       } else if (transactionType === "STATIC") {
         const merchantCode = paymentData.reference_id;
+        console.log("merchantCode", merchantCode);
         const merchant = await Merchants.findOne({
           where: { merchant_code: merchantCode },
           transaction: t,
         });
 
+        console.log("merchant", merchant);
+
         if (!merchant) {
           await t.commit();
           return res.status(200).send("Merchant for static QR not found.");
         }
+
+        console.log("merchant", merchant);
 
         // Create transaksi baru untuk Static
         transaction = await Transactions.create(
@@ -383,6 +388,8 @@ class Controller {
           },
           { transaction: t }
         );
+
+        console.log("transaction", transaction);
 
         // Manual inject Merchant data agar bisa dipakai di bawah
         transaction.Merchant = merchant;
