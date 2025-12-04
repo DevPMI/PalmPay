@@ -1,12 +1,18 @@
-const db = require('../models');
-const { Transactions, Users_Banks, Merchants, Edc_Devices, Xendit_QR_Payments } = db;
-const HistoryController = require('./HistoryController'); // Import HistoryController
-const { receiptTemplate1 } = require('../helper/html/receiptTemplate');
-const path = require('path');
-const { default: axios } = require('axios');
-const mqttClient = require('../helper/mqttHandler');
-const fs = require('fs').promises;
-const puppeteer = require('puppeteer');
+const db = require("../models");
+const {
+  Transactions,
+  Users_Banks,
+  Merchants,
+  Edc_Devices,
+  Xendit_QR_Payments,
+} = db;
+const HistoryController = require("./HistoryController"); // Import HistoryController
+const { receiptTemplate1 } = require("../helper/html/receiptTemplate");
+const path = require("path");
+const { default: axios } = require("axios");
+const mqttClient = require("../helper/mqttHandler");
+const fs = require("fs").promises;
+const puppeteer = require("puppeteer");
 class Controller {
   // PALMPAY
   static async palmpay(req, res, next) {
@@ -25,12 +31,14 @@ class Controller {
 
       // 2. Validasi umum
       if (!merchant_id || !amount || !transaction_method) {
-        throw { name: 'Data transaksi tidak lengkap.' };
+        throw { name: "Data transaksi tidak lengkap." };
       }
 
-      const merchant = await Merchants.findOne({ where: { merchant_id: merchant_id } });
+      const merchant = await Merchants.findOne({
+        where: { merchant_id: merchant_id },
+      });
       if (!merchant) {
-        throw { name: 'Merchant tidak valid atau tidak ditemukan.' };
+        throw { name: "Merchant tidak valid atau tidak ditemukan." };
       }
 
       t = await db.sequelize.transaction();
@@ -41,27 +49,32 @@ class Controller {
         // --- LOGIKA DIPISAH BERDASARKAN METODE PEMBAYARAN ---
 
         // ALUR KHUSUS UNTUK PALMPAY
-        if (transaction_method === 'PALMPAY') {
+        if (transaction_method === "PALMPAY") {
           // Validasi khusus Palmpay
           if (!palm_id) {
-            throw { name: 'Palm ID wajib diisi untuk transaksi PALMPAY.' };
+            throw { name: "Palm ID wajib diisi untuk transaksi PALMPAY." };
           }
 
-          const userAccount = await Users_Banks.findOne({ where: { palm_id: palm_id } });
+          const userAccount = await Users_Banks.findOne({
+            where: { palm_id: palm_id },
+          });
           if (!userAccount) {
-            throw { name: 'Pengguna dengan Palm ID tersebut tidak terdaftar.' };
+            throw { name: "Pengguna dengan Palm ID tersebut tidak terdaftar." };
           }
           if (userAccount.balance < amount) {
-            throw { name: 'Saldo tidak mencukupi.' };
+            throw { name: "Saldo tidak mencukupi." };
           }
 
           const originalBalance = userAccount.balance;
-          await userAccount.decrement('balance', { by: amount, transaction: t });
+          await userAccount.decrement("balance", {
+            by: amount,
+            transaction: t,
+          });
 
           newTransaction = await Transactions.create(
             {
               transaction_method,
-              status: 'berhasil',
+              status: "berhasil",
               timestamp: timestamp || new Date(),
               user_id: userAccount.user_id, // user_id diisi
               merchant_id: merchant.merchant_id,
@@ -72,10 +85,12 @@ class Controller {
           );
 
           // Perbarui saldo merchant
-          await merchant.increment('balance', { by: amount, transaction: t });
+          await merchant.increment("balance", { by: amount, transaction: t });
 
           // Tambahkan entri ke fake history
-          HistoryController.addFakeHistoryEntry({ amount: newTransaction.amount });
+          HistoryController.addFakeHistoryEntry({
+            amount: newTransaction.amount,
+          });
 
           responsePayload = {
             transactionId: newTransaction.transaction_id,
@@ -88,11 +103,11 @@ class Controller {
           };
 
           // ALUR KHUSUS UNTUK CONTACTLESS
-        } else if (transaction_method === 'CONTACTLESS') {
+        } else if (transaction_method === "CONTACTLESS") {
           newTransaction = await Transactions.create(
             {
               transaction_method,
-              status: 'berhasil',
+              status: "berhasil",
               timestamp: timestamp || new Date(),
               user_id: null, // user_id dikosongkan
               merchant_id: merchant.merchant_id,
@@ -112,14 +127,16 @@ class Controller {
             timestamp: newTransaction.timestamp,
           };
         } else {
-          throw { name: 'Metode pembayaran ini tidak didukung oleh endpoint ini.' };
+          throw {
+            name: "Metode pembayaran ini tidak didukung oleh endpoint ini.",
+          };
         }
 
         await t.commit();
 
         res.status(201).json({
           statusCode: 201,
-          message: 'Transaksi berhasil.',
+          message: "Transaksi berhasil.",
           data: responsePayload,
         });
       } catch (dbError) {
@@ -138,21 +155,23 @@ class Controller {
       const { amount, merchant_id, sn_edc } = req.body;
 
       if (!merchant_id) {
-        throw { name: 'Parameter `merchant_id` wajib diisi.' };
+        throw { name: "Parameter `merchant_id` wajib diisi." };
       }
       if (!sn_edc) {
-        throw { name: 'Parameter `sn_edc` wajib diisi.' };
+        throw { name: "Parameter `sn_edc` wajib diisi." };
       }
       if (amount === undefined || amount === null) {
-        throw { name: 'Parameter `amount` wajib diisi.' };
+        throw { name: "Parameter `amount` wajib diisi." };
       }
-      if (typeof amount !== 'number' || amount < 1000) {
-        throw { name: 'Parameter `amount` harus berupa angka dan minimal 1000.' };
+      if (typeof amount !== "number" || amount < 1000) {
+        throw {
+          name: "Parameter `amount` harus berupa angka dan minimal 1000.",
+        };
       }
 
       const merchant = await Merchants.findByPk(merchant_id);
       if (!merchant) {
-        throw { name: 'Merchant tidak ditemukan.' };
+        throw { name: "Merchant tidak ditemukan." };
       }
 
       const deviceEdc = await Edc_Devices.findOne({
@@ -162,12 +181,14 @@ class Controller {
       });
 
       if (!deviceEdc) {
-        throw { name: 'SN EDC tidak terdaftar.' };
+        throw { name: "SN EDC tidak terdaftar." };
       }
 
       // Langkah 2: Jika SN EDC ditemukan, cek apakah merchant_id-nya cocok
       if (deviceEdc.merchant_id !== merchant_id) {
-        throw { name: 'Device ini tidak terdaftar untuk merchant yang bersangkutan.' };
+        throw {
+          name: "Device ini tidak terdaftar untuk merchant yang bersangkutan.",
+        };
       }
 
       const device = await Edc_Devices.findOne({
@@ -178,7 +199,9 @@ class Controller {
       });
 
       if (!device) {
-        throw { name: 'Device tidak valid atau tidak terdaftar untuk merchant ini.' };
+        throw {
+          name: "Device tidak valid atau tidak terdaftar untuk merchant ini.",
+        };
       }
 
       const newTransaction = await Transactions.create(
@@ -186,8 +209,8 @@ class Controller {
           amount,
           merchant_id,
           sn_edc,
-          status: 'pending',
-          transaction_method: 'XENDIT_QR_DYNAMIC',
+          status: "pending",
+          transaction_method: "XENDIT_QR_DYNAMIC",
         },
         { transaction: t }
       );
@@ -197,20 +220,22 @@ class Controller {
       // 4. Siapkan body request untuk Xendit (selalu DYNAMIC)
       const bodyParams = {
         reference_id: newTransaction.transaction_id,
-        type: 'DYNAMIC',
-        currency: 'IDR',
+        type: "DYNAMIC",
+        currency: "IDR",
         amount: amount,
         expires_at: expiresAt.toISOString(),
       };
 
       const url = `${process.env.XENDIT_BASE_URL}/qr_codes`;
       const { data: xenditResponse } = await axios.post(url, bodyParams, {
-        auth: { username: process.env.XENDIT_PRIVATEKEY, password: '' },
-        headers: { 'api-version': '2022-07-31' },
+        auth: { username: process.env.XENDIT_PRIVATEKEY, password: "" },
+        headers: { "api-version": "2022-07-31" },
       });
 
       if (xenditResponse.error_code) {
-        throw new Error(xenditResponse.message || 'Gagal membuat QR code di Xendit.');
+        throw new Error(
+          xenditResponse.message || "Gagal membuat QR code di Xendit."
+        );
       }
 
       // 5. Simpan detail QR ke database
@@ -231,7 +256,7 @@ class Controller {
       // 6. Kirim respons sukses
       res.status(201).json({
         statusCode: 201,
-        message: 'QR Code berhasil dibuat.',
+        message: "QR Code berhasil dibuat.",
         data: {
           transaction_id: newTransaction.transaction_id,
           qr_string: xenditResponse.qr_string,
@@ -251,15 +276,15 @@ class Controller {
       // Cari merchant dan QR statisnya di database
       const merchant = await Merchants.findByPk(merchantId);
 
-      console.log('MERCHANT --- ID', merchantId);
-      console.log('MERCHANT', merchant);
+      console.log("MERCHANT --- ID", merchantId);
+      console.log("MERCHANT", merchant);
       if (!merchant || !merchant.static_qr_string) {
-        throw { name: 'QR Code statis tidak ditemukan untuk merchant ini.' };
+        throw { name: "QR Code statis tidak ditemukan untuk merchant ini." };
       }
 
       res.status(200).json({
         statusCode: 200,
-        message: 'QR Code statis berhasil diambil.',
+        message: "QR Code statis berhasil diambil.",
         data: {
           qr_string: merchant.static_qr_string,
         },
@@ -277,17 +302,17 @@ class Controller {
       const transaction = await Transactions.findByPk(transaction_id, {
         include: {
           model: Xendit_QR_Payments,
-          attributes: ['status', 'expires_at', 'qr_string'], // Hanya ambil kolom yang relevan
+          attributes: ["status", "expires_at", "qr_string"], // Hanya ambil kolom yang relevan
         },
       });
 
       if (!transaction) {
-        throw { name: 'Transaksi tidak ditemukan.' };
+        throw { name: "Transaksi tidak ditemukan." };
       }
 
       res.status(200).json({
         statusCode: 200,
-        message: 'Status transaksi berhasil diambil.',
+        message: "Status transaksi berhasil diambil.",
         data: transaction,
       });
     } catch (error) {
@@ -295,26 +320,33 @@ class Controller {
     }
   }
 
-static async callbackQRTransaction(req, res, next) {
-    let t = null; 
+  static async callbackQRTransaction(req, res, next) {
+    let t = null;
 
     try {
       const callbackData = req.body;
+      console.log("callbackData RAW", callbackData);
       const paymentData = callbackData.data;
+      console.log("callbackData.data", paymentData);
 
-      if (!paymentData || callbackData.event !== 'qr.payment') {
-        return res.status(200).send('Event ignored');
+      // Validasi awal
+      if (!paymentData || callbackData.event !== "qr.payment") {
+        return res.status(200).send("Event ignored");
       }
 
       const transactionType = paymentData.type;
-      console.log('PAYMENT DATA', paymentData);
+      console.log("PAYMENT DATA", paymentData);
 
       let transaction;
       let transactionId;
 
-      t = await db.sequelize.transaction(); 
+      // Mulai Transaksi Database
+      t = await db.sequelize.transaction();
 
-      if (transactionType === 'DYNAMIC') {
+      // ----------------------------------------------------------------
+      // 1. LOGIKA CARI / BUAT TRANSAKSI (DYNAMIC vs STATIC)
+      // ----------------------------------------------------------------
+      if (transactionType === "DYNAMIC") {
         transaction = await Transactions.findByPk(paymentData.reference_id, {
           include: Merchants,
           transaction: t,
@@ -322,11 +354,11 @@ static async callbackQRTransaction(req, res, next) {
 
         if (!transaction) {
           await t.commit();
-          return res.status(200).send('Dynamic transaction not found.');
+          return res.status(200).send("Dynamic transaction not found.");
         }
 
         transactionId = transaction.transaction_id;
-      } else if (transactionType === 'STATIC') {
+      } else if (transactionType === "STATIC") {
         const merchantCode = paymentData.reference_id;
         const merchant = await Merchants.findOne({
           where: { merchant_code: merchantCode },
@@ -335,34 +367,39 @@ static async callbackQRTransaction(req, res, next) {
 
         if (!merchant) {
           await t.commit();
-          return res.status(200).send('Merchant for static QR not found.');
+          return res.status(200).send("Merchant for static QR not found.");
         }
 
+        // Create transaksi baru untuk Static
         transaction = await Transactions.create(
           {
-            transaction_method: 'XENDIT_QR_STATIC',
-            status: 'pending',
+            transaction_method: "XENDIT_QR_STATIC",
+            status: "pending",
             amount: paymentData.amount,
             merchant_id: merchant.merchant_id,
-            sn_edc: null, 
+            sn_edc: null, // Static tidak punya SN EDC
             timestamp: new Date(paymentData.created),
             xendit_payment_id: paymentData.id,
           },
           { transaction: t }
         );
-        
-        // Manual inject Merchant data
-        transaction.Merchant = merchant; 
+
+        // Manual inject Merchant data agar bisa dipakai di bawah
+        transaction.Merchant = merchant;
         transactionId = transaction.transaction_id;
       } else {
         await t.commit();
-        return res.status(200).send('Unsupported QR type.');
+        return res.status(200).send("Unsupported QR type.");
       }
 
-      if (paymentData.status === 'SUCCEEDED') {
+      // ----------------------------------------------------------------
+      // 2. UPDATE STATUS DATABASE & SALDO
+      // ----------------------------------------------------------------
+      if (paymentData.status === "SUCCEEDED") {
+        // Update status jadi berhasil
         await Transactions.update(
           {
-            status: 'berhasil',
+            status: "berhasil",
             timestamp: new Date(paymentData.created),
           },
           {
@@ -371,19 +408,22 @@ static async callbackQRTransaction(req, res, next) {
           }
         );
 
+        // Tambah saldo Merchant
         if (transaction && transaction.Merchant) {
-            await Merchants.increment('balance', { 
-                by: paymentData.amount, 
-                where: { merchant_id: transaction.Merchant.merchant_id },
-                transaction: t 
-            });
-            
-            HistoryController.addFakeHistoryEntry({ amount: paymentData.amount });
+          await Merchants.increment("balance", {
+            by: paymentData.amount,
+            where: { merchant_id: transaction.Merchant.merchant_id },
+            transaction: t,
+          });
+
+          // Fake history (opsional)
+          HistoryController.addFakeHistoryEntry({ amount: paymentData.amount });
         }
-      } else if (paymentData.status === 'FAILED') {
+      } else if (paymentData.status === "FAILED") {
+        // Update status jadi gagal
         await Transactions.update(
           {
-            status: 'gagal',
+            status: "gagal",
             timestamp: new Date(paymentData.created),
           },
           {
@@ -393,39 +433,54 @@ static async callbackQRTransaction(req, res, next) {
         );
       }
 
+      // COMMIT Database (Simpan permanen)
       await t.commit();
 
-      // ============================================================
-      // MQTT NOTIFICATION (FAST & LIGHTWEIGHT)
-      // ============================================================
+      // ----------------------------------------------------------------
+      // 3. MQTT NOTIFICATION (Dijalankan SETELAH Commit)
+      // ----------------------------------------------------------------
       try {
-        if (paymentData.status === 'SUCCEEDED') {
-            console.log(`[MQTT] Sending notification for TRX: ${transactionId}`);
-            
-            const mqttPayload = {
-                devices_sn: transaction.sn_edc || null,
-                payment_detail: paymentData.payment_detail,
-                reference_id: transactionId,
-                amount: paymentData.amount,
-                status: 'SUCCESS', 
-                receipt_path: null // Tidak ada PDF
-            };
+        if (paymentData.status === "SUCCEEDED") {
+          // CHECKPOINT 1: Debugging start
+          console.log(
+            `[DEBUG] Transaction DB Committed. ID: ${transactionId}. Starting MQTT...`
+          );
 
-            // Kirim pesan MQTT
-            mqttClient.sendMessage(JSON.stringify(mqttPayload));
+          const mqttPayload = {
+            devices_sn: transaction.sn_edc || "NO_SN", // Pastikan handle null
+            payment_detail: paymentData.payment_detail || {},
+            reference_id: transactionId,
+            amount: paymentData.amount,
+            status: "SUCCESS",
+            receipt_path: null,
+          };
+
+          // CHECKPOINT 2: Cek isi payload
+          console.log("[DEBUG] MQTT Payload:", JSON.stringify(mqttPayload));
+
+          // AWAIT PENGIRIMAN (Menggunakan fungsi sendMessage yang sudah diperbaiki jadi Promise)
+          await mqttClient.sendMessage(JSON.stringify(mqttPayload));
+
+          console.log("[DEBUG] MQTT process finished successfully.");
         }
       } catch (mqttError) {
-        console.error(`[MQTT ERROR] Failed to send message:`, mqttError);
+        // Jika MQTT gagal, database TETAP AMAN (karena sudah di-commit di atas)
+        // Kita hanya perlu log errornya agar tahu.
+        console.error(
+          `[MQTT ERROR] Notification failed but TRX saved. Reason: ${mqttError.message}`
+        );
       }
-      // ============================================================
 
-      res.status(200).json({ message: 'Callback processed successfully.' });
-
+      // ----------------------------------------------------------------
+      // 4. RESPONSE SELESAI
+      // ----------------------------------------------------------------
+      res.status(200).json({ message: "Callback processed successfully." });
     } catch (error) {
+      // Rollback database jika ada error SEBELUM commit
       if (t && !t.finished) {
         await t.rollback();
       }
-      console.error('Error in callbackQRTransaction:', error);
+      console.error("Error in callbackQRTransaction:", error);
       next(error);
     }
   }
@@ -437,25 +492,28 @@ static async callbackQRTransaction(req, res, next) {
       const callbackData = req.body;
       const paymentData = callbackData.data;
 
-      if (!paymentData || callbackData.event !== 'qr.payment') {
+      if (!paymentData || callbackData.event !== "qr.payment") {
         return res.status(200).json(req.body);
       }
 
       const transactionType = paymentData.type;
-      console.log('RAW JSON PAYMENT DATA', paymentData);
+      console.log("RAW JSON PAYMENT DATA", paymentData);
 
       let transactionId;
 
       t = await db.sequelize.transaction();
 
-      if (transactionType === 'DYNAMIC') {
-        const transaction = await Transactions.findByPk(paymentData.reference_id, { transaction: t });
+      if (transactionType === "DYNAMIC") {
+        const transaction = await Transactions.findByPk(
+          paymentData.reference_id,
+          { transaction: t }
+        );
         if (!transaction) {
           await t.commit();
           return res.status(200).json(req.body);
         }
         transactionId = transaction.transaction_id;
-      } else if (transactionType === 'STATIC') {
+      } else if (transactionType === "STATIC") {
         const merchant = await Merchants.findOne({
           where: { merchant_code: paymentData.reference_id },
           transaction: t,
@@ -466,8 +524,8 @@ static async callbackQRTransaction(req, res, next) {
         }
         const newTransaction = await Transactions.create(
           {
-            transaction_method: 'XENDIT_QR_STATIC',
-            status: 'pending',
+            transaction_method: "XENDIT_QR_STATIC",
+            status: "pending",
             amount: paymentData.amount,
             merchant_id: merchant.merchant_id,
             sn_edc: null,
@@ -482,14 +540,14 @@ static async callbackQRTransaction(req, res, next) {
         return res.status(200).json(req.body);
       }
 
-      if (paymentData.status === 'SUCCEEDED') {
+      if (paymentData.status === "SUCCEEDED") {
         await Transactions.update(
-          { status: 'berhasil', timestamp: new Date(paymentData.created) },
+          { status: "berhasil", timestamp: new Date(paymentData.created) },
           { where: { transaction_id: transactionId }, transaction: t }
         );
-      } else if (paymentData.status === 'FAILED') {
+      } else if (paymentData.status === "FAILED") {
         await Transactions.update(
-          { status: 'gagal', timestamp: new Date(paymentData.created) },
+          { status: "gagal", timestamp: new Date(paymentData.created) },
           { where: { transaction_id: transactionId }, transaction: t }
         );
       } else {
@@ -504,7 +562,7 @@ static async callbackQRTransaction(req, res, next) {
       if (t && !t.finished) {
         await t.rollback();
       }
-      console.error('Error in callbackQRTransactionRaw:', error);
+      console.error("Error in callbackQRTransactionRaw:", error);
       next(error);
     }
   }
@@ -517,12 +575,12 @@ static async callbackQRTransaction(req, res, next) {
       const transactions = await Transactions.findAll({
         where: { sn_edc: sn_edc },
         include: { model: Xendit_QR_Payments },
-        order: [['createdAt', 'DESC']],
+        order: [["createdAt", "DESC"]],
       });
 
       res.status(200).json({
         statusCode: 200,
-        message: 'Data transaksi berhasil diambil.',
+        message: "Data transaksi berhasil diambil.",
         data: transactions,
       });
     } catch (error) {
@@ -536,7 +594,7 @@ static async callbackQRTransaction(req, res, next) {
       const { amount, reason } = req.body;
 
       if (!amount || !reason) {
-        throw { name: '`amount` dan `reason` dibutuhkan untuk refund.' };
+        throw { name: "`amount` dan `reason` dibutuhkan untuk refund." };
       }
 
       // REFACTOR: Cari record pembayaran menggunakan ORM
@@ -545,7 +603,7 @@ static async callbackQRTransaction(req, res, next) {
       });
 
       if (!qrPayment) {
-        throw { name: 'Transaksi pembayaran QR tidak ditemukan.' };
+        throw { name: "Transaksi pembayaran QR tidak ditemukan." };
       }
 
       // CATATAN PENTING:
@@ -554,7 +612,9 @@ static async callbackQRTransaction(req, res, next) {
       // Pastikan Anda telah menambahkan kolom `xendit_payment_id` di model `Xendit_QR_Payments`
       // dan menyimpannya saat callback diterima.
       if (!qrPayment.xendit_payment_id) {
-        throw { name: 'Payment ID tidak ditemukan, refund tidak bisa diproses.' };
+        throw {
+          name: "Payment ID tidak ditemukan, refund tidak bisa diproses.",
+        };
       }
 
       // Panggil API Xendit untuk refund
@@ -565,11 +625,11 @@ static async callbackQRTransaction(req, res, next) {
       });
 
       // Update status di database kita
-      await qrPayment.update({ status: 'REFUNDED' });
+      await qrPayment.update({ status: "REFUNDED" });
 
       res.status(200).json({
         statusCode: 200,
-        message: 'Permintaan refund berhasil diproses.',
+        message: "Permintaan refund berhasil diproses.",
         data: refundResponse,
       });
     } catch (error) {
@@ -586,7 +646,7 @@ static async callbackQRTransaction(req, res, next) {
       const transaction = await Transactions.findByPk(transactionId);
 
       if (!transaction || !transaction.receipt_path) {
-        throw { name: 'File struk tidak ditemukan.' };
+        throw { name: "File struk tidak ditemukan." };
       }
 
       // Path receipt_path harus merupakan path absolut ke file
@@ -597,7 +657,7 @@ static async callbackQRTransaction(req, res, next) {
       try {
         await fs.access(absolutePath); // fs.promises.access
       } catch (fileError) {
-        throw { name: 'File struk tidak ditemukan di server.' };
+        throw { name: "File struk tidak ditemukan di server." };
       }
 
       res.sendFile(absolutePath);
@@ -621,12 +681,12 @@ static async callbackQRTransaction(req, res, next) {
       });
 
       if (!qrPayment) {
-        throw { name: 'Data QR Code tidak ditemukan.' };
+        throw { name: "Data QR Code tidak ditemukan." };
       }
 
       res.status(200).json({
         statusCode: 200,
-        message: 'Data QR Code berhasil diambil.',
+        message: "Data QR Code berhasil diambil.",
         data: qrPayment,
       });
     } catch (error) {
@@ -641,12 +701,12 @@ static async callbackQRTransaction(req, res, next) {
       const transactions = await Transactions.findAll({
         where: { sn_edc: sn_edc },
         include: { model: Xendit_QR_Payments },
-        order: [['createdAt', 'DESC']],
+        order: [["createdAt", "DESC"]],
       });
 
       res.status(200).json({
         statusCode: 200,
-        message: 'Data transaksi berhasil diambil.',
+        message: "Data transaksi berhasil diambil.",
         data: transactions,
       });
     } catch (error) {
@@ -661,13 +721,13 @@ static async callbackQRTransaction(req, res, next) {
 
       const lastTransaction = await Transactions.findOne({
         where: { sn_edc: sn_edc },
-        order: [['createdAt', 'DESC']], // Urutkan berdasarkan waktu pembuatan terbaru
+        order: [["createdAt", "DESC"]], // Urutkan berdasarkan waktu pembuatan terbaru
         include: { model: Xendit_QR_Payments },
       });
 
       res.status(200).json({
         statusCode: 200,
-        message: 'Data transaksi terakhir berhasil diambil.',
+        message: "Data transaksi terakhir berhasil diambil.",
         data: lastTransaction || null,
       });
     } catch (error) {
@@ -679,17 +739,17 @@ static async callbackQRTransaction(req, res, next) {
     try {
       const transactions = await Transactions.findAll({
         include: [
-          { model: Xendit_QR_Payments, attributes: ['status'] },
-          { model: Merchants, attributes: ['merchant_name'] },
+          { model: Xendit_QR_Payments, attributes: ["status"] },
+          { model: Merchants, attributes: ["merchant_name"] },
           // Jika ingin join ke Edc_Devices, pastikan asosiasinya sudah dibuat
           // { model: Edc_Devices, attributes: ['device_id'] }
         ],
-        order: [['createdAt', 'DESC']],
+        order: [["createdAt", "DESC"]],
       });
 
       res.status(200).json({
         statusCode: 200,
-        message: 'Semua data transaksi berhasil diambil.',
+        message: "Semua data transaksi berhasil diambil.",
         data: transactions,
       });
     } catch (error) {
