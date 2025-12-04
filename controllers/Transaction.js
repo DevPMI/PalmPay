@@ -373,8 +373,6 @@ class Controller {
           return res.status(200).send("Merchant for static QR not found.");
         }
 
-        console.log("merchant", merchant);
-
         // Create transaksi baru untuk Static
         transaction = await Transactions.create(
           {
